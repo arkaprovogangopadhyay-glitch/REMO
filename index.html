@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Matcher &amp; Tailored Resume Bot</title>
+  <!-- 100% local open-source libraries (zero third-party CDN dependencies) -->
+  <script src="vendor/pdf.min.js" defer></script>
+  <script src="vendor/jszip.min.js" defer></script>
+  <script src="vendor/jspdf.umd.min.js" defer></script>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #0f172a;
+      --surface-2: #0b1120;
+      --border: #1e293b;
+      --border-strong: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --blue: #2563eb;
+      --blue-hover: #3b82f6;
+      --blue-soft: rgba(37, 99, 235, 0.16);
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --amber: #f59e0b;
+      --amber-soft: rgba(245, 158, 11, 0.14);
+      --rose: #f43f5e;
+      --rose-soft: rgba(244, 63, 94, 0.15);
+      --indigo: #6366f1;
+      --indigo-soft: rgba(99, 102, 241, 0.16);
+      --header-bg: rgba(9, 13, 22, 0.92);
+    }
+
+    body.light-mode {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #64748b;
+      --blue-soft: #eff6ff;
+      --emerald-soft: #ecfdf5;
+      --amber-soft: #fffbeb;
+      --rose-soft: #fff1f2;
+      --indigo-soft: #eef2ff;
+      --header-bg: rgba(255, 255, 255, 0.94);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+    header {
+      position: sticky; top: 0; z-index: 20;
+      background: var(--header-bg);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px 0;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 40px; height: 40px; border-radius: 12px; background: var(--blue);
+      display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0;
+    }
+    .brand h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+    .brand p { font-size: 12px; color: var(--text-muted); }
+    .offline-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      background: var(--emerald-soft); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); }
+
+    main { padding: 22px 0 40px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex; flex-direction: column;
+    }
+    .card-head {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 10px; margin-bottom: 14px;
+    }
+    .card-title-wrap { display: flex; align-items: center; gap: 10px; }
+    .icon-box {
+      width: 30px; height: 30px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .icon-blue { background: var(--blue-soft); color: #3b82f6; }
+    .icon-indigo { background: var(--indigo-soft); color: #6366f1; }
+    .card-title-wrap h2 { font-size: 14px; font-weight: 700; }
+    .card-title-wrap p { font-size: 12px; color: var(--text-muted); }
+
+    button { font-family: inherit; cursor: pointer; border: none; transition: all 0.15s ease; }
+    .btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .btn-ghost {
+      padding: 6px 11px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);
+    }
+    .btn-ghost:hover { border-color: var(--blue-hover); }
+    .btn-danger-ghost {
+      padding: 6px 11px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border-strong);
+    }
+    .btn-danger-ghost:hover { background: var(--rose-soft); color: var(--rose); border-color: rgba(244,63,94,0.4); }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 16px; border-radius: 11px; font-size: 13px; font-weight: 600;
+      background: var(--blue); color: #fff;
+    }
+    .btn-primary:hover { background: var(--blue-hover); }
+    .btn-emerald {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 600;
+      background: #059669; color: #fff;
+    }
+    .btn-emerald:hover { background: #10b981; }
+    .btn-indigo {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 7px 12px; border-radius: 10px; font-size: 12px; font-weight: 600;
+      background: #4f46e5; color: #fff;
+    }
+    .btn-indigo:hover { background: #6366f1; }
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 13px; border-radius: 10px; font-size: 12px; font-weight: 600;
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);
+    }
+    .btn-outline:hover { border-color: var(--blue-hover); }
+    .btn-link { background: transparent; color: #3b82f6; font-size: 12px; font-weight: 600; padding: 0; }
+    .btn-link:hover { text-decoration: underline; }
+
+    .drop-zone {
+      border: 2px dashed var(--border-strong);
+      border-radius: 12px;
+      background: var(--surface-2);
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .drop-zone:hover, .drop-zone.active { border-color: var(--blue-hover); background: var(--blue-soft); }
+    .drop-circle {
+      width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%;
+      background: var(--surface); border: 1px solid var(--border-strong);
+      display: flex; align-items: center; justify-content: center; color: #3b82f6;
+    }
+    .drop-zone strong { font-size: 14px; color: var(--text); }
+    .drop-zone .browse-txt { color: #3b82f6; text-decoration: underline; }
+    .drop-zone small { display: block; margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+
+    .status-bar {
+      margin-top: 12px; padding: 9px 12px; border-radius: 10px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+      font-size: 12px;
+    }
+    .status-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .status-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+    .status-right { display: flex; align-items: center; gap: 12px; color: var(--text-muted); }
+
+    input[type="text"], textarea {
+      width: 100%; border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface-2); color: var(--text);
+      padding: 9px 12px; font-family: inherit; font-size: 12.5px;
+      outline: none; transition: border-color 0.15s ease;
+    }
+    input[type="text"]:focus, textarea:focus { border-color: var(--blue-hover); }
+    textarea { resize: vertical; line-height: 1.55; }
+    .input-pair { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 10px; }
+    @media (min-width: 560px) { .input-pair { grid-template-columns: 1fr 1fr; } }
+
+    .signals-wrap { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .signals-head { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 8px; }
+    .signals-head span:first-child { font-weight: 600; color: var(--text-muted); }
+    .signals-head span:last-child { color: var(--text-dim); }
+    .pill-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 500;
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);
+    }
+    .pill-blue { background: var(--blue-soft); color: #3b82f6; border-color: rgba(59,130,246,0.3); }
+
+    /* Saved Session Matches bar */
+    .saved-bar {
+      margin-top: 18px; padding: 12px 16px; border-radius: 14px;
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    .saved-head {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-muted); margin-bottom: 8px;
+    }
+    .saved-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong);
+    }
+    .saved-chip:hover { border-color: var(--blue-hover); }
+
+    .results-card { margin-top: 18px; }
+    .results-top {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    .score-box { display: flex; align-items: center; gap: 16px; }
+    .ring-wrap { position: relative; width: 78px; height: 78px; flex-shrink: 0; }
+    .ring-wrap svg { width: 78px; height: 78px; transform: rotate(-90deg); }
+    .ring-center {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .ring-center strong { font-size: 19px; font-weight: 700; line-height: 1.1; }
+    .ring-center span { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+
+    .tier-badge {
+      display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px;
+      font-size: 11.5px; font-weight: 600; border: 1px solid transparent;
+    }
+    .tier-high { background: var(--emerald-soft); color: #10b981; border-color: rgba(16,185,129,0.3); }
+    .tier-mid { background: var(--amber-soft); color: #d97706; border-color: rgba(245,158,11,0.3); }
+    .tier-low { background: var(--rose-soft); color: #e11d48; border-color: rgba(244,63,94,0.3); }
+    .tier-empty { background: var(--surface-2); color: var(--text-muted); border-color: var(--border-strong); }
+
+    .subscore-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px; margin-top: 16px;
+    }
+    .sub-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 11px 12px;
+    }
+    .sub-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 7px; }
+    .sub-top span:first-child { color: var(--text-muted); font-weight: 600; }
+    .sub-top span:last-child { font-weight: 700; }
+    .bar-track { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; transition: width 0.35s ease; }
+    .sub-note { margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+
+    .kw-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 18px; }
+    @media (min-width: 820px) { .kw-grid { grid-template-columns: 1fr 1fr; } }
+    .kw-box { border-radius: 12px; padding: 14px; }
+    .kw-matched { background: var(--emerald-soft); border: 1px solid rgba(16,185,129,0.28); }
+    .kw-missing { background: var(--amber-soft); border: 1px solid rgba(245,158,11,0.28); }
+    .kw-head {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      margin-bottom: 10px;
+    }
+    .kw-chip-ok {
+      padding: 4px 9px; border-radius: 7px; font-size: 11.5px; font-weight: 500;
+      background: var(--surface); color: #10b981; border: 1px solid rgba(16,185,129,0.3);
+    }
+    .kw-toggle {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 9px; border-radius: 7px; font-size: 11.5px; font-weight: 500;
+      background: var(--surface); color: #d97706; border: 1px solid rgba(245,158,11,0.45);
+    }
+    .kw-toggle.excluded {
+      background: var(--surface-2); color: var(--text-dim); border-color: var(--border-strong); text-decoration: line-through;
+    }
+
+    .edits-section { margin-top: 18px; }
+    .edits-head {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      gap: 8px; margin-bottom: 10px;
+    }
+    .edits-head h4 { font-size: 14px; font-weight: 700; }
+    .edits-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    @media (min-width: 760px) { .edits-grid { grid-template-columns: 1fr 1fr; } }
+    .edit-item {
+      display: flex; align-items: flex-start; gap: 9px; cursor: pointer;
+      padding: 9px 11px; border-radius: 10px;
+      background: var(--surface-2); border: 1px solid var(--border);
+    }
+    .edit-item:hover { border-color: rgba(59,130,246,0.45); }
+    .edit-item.done { background: var(--emerald-soft); border-color: rgba(16,185,129,0.3); }
+    .edit-item input { margin-top: 3px; accent-color: var(--blue); }
+    .edit-tag {
+      display: inline-block; padding: 1px 6px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+      margin-right: 5px;
+    }
+    .edit-title { font-size: 12px; font-weight: 600; color: var(--text); }
+    .edit-item.done .edit-title { color: var(--text-dim); text-decoration: line-through; }
+    .edit-detail { font-size: 11.2px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+    .edit-item.done .edit-detail { color: var(--text-dim); }
+
+    .cv-studio {
+      margin-top: 20px; padding: 16px; border-radius: 14px;
+      background: var(--surface-2); border: 1px solid rgba(16,185,129,0.35);
+    }
+    .cv-studio-head {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      gap: 10px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+    .cv-editor {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px; line-height: 1.55; min-height: 290px;
+    }
+
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; bottom: 18px; right: 18px; z-index: 50;
+      background: #1e293b; color: #f8fafc; border: 1px solid #334155;
+      padding: 11px 15px; border-radius: 11px; font-size: 12.5px; font-weight: 500;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.45); max-width: 350px;
+    }
+
+    #printSheet { display: none; }
+    @media print {
+      body { background: #fff !important; color: #111827 !important; }
+      header, main, .toast { display: none !important; }
+      #printSheet {
+        display: block !important; white-space: pre-wrap;
+        font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; line-height: 1.45;
+        color: #111827; padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="toast" class="toast hidden"></div>
+  <div id="printSheet"></div>
+
+  <header>
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+        </div>
+        <div>
+          <h1>Job Matcher &amp; Tailored Resume Bot</h1>
+          <p>Drop your resume, paste any job description, check your match score, and export a tailored PDF or DOCX</p>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button id="btnThemeToggle" type="button" class="btn-ghost">Light Theme</button>
+        <span class="offline-pill">
+          <span class="dot"></span>
+          <span>100% Local &amp; Private</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="grid-2">
+      <!-- PANEL 1: DROP YOUR RESUME -->
+      <section class="card">
+        <div class="card-head">
+          <div class="card-title-wrap">
+            <div class="icon-box icon-blue" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div>
+              <h2>1. Drop Your Resume</h2>
+              <p>Drag &amp; drop a PDF, DOCX, or TXT file (max 10 MB), or paste your CV text</p>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button id="btnLoadSample" type="button" class="btn-ghost">Try Sample CV</button>
+            <button id="btnClearResume" type="button" class="btn-danger-ghost">Clear</button>
+          </div>
+        </div>
+
+        <div id="resumeDropZone" class="drop-zone">
+          <input id="resumeFileInput" type="file" accept=".pdf,.docx,.txt,.md" class="hidden" />
+          <div class="drop-circle" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+          </div>
+          <strong>Drop your resume here or <span class="browse-txt">browse files</span></strong>
+          <small>Supports PDF, DOCX, TXT, MD • Processed 100% locally in your browser</small>
+        </div>
+
+        <div class="status-bar">
+          <div class="status-left">
+            <span style="color:#10b981;font-weight:700;">●</span>
+            <span id="resumeFileName" class="status-name">No resume loaded</span>
+          </div>
+          <div class="status-right">
+            <span id="resumeWordCount">0 words</span>
+            <button id="btnToggleResumeText" type="button" class="btn-link">Paste / Edit Text</button>
+          </div>
+        </div>
+
+        <div id="resumeTextContainer" class="hidden" style="margin-top:10px;">
+          <label for="resumeTextArea" style="display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:5px;">
+            Resume Text (paste or edit directly here anytime)
+          </label>
+          <textarea id="resumeTextArea" rows="7" placeholder="Paste your resume text here..."></textarea>
+        </div>
+
+        <div class="signals-wrap">
+          <div class="signals-head">
+            <span>Detected Resume Signals</span>
+            <span id="detectedSignalCount">0 detected</span>
+          </div>
+          <div id="resumeSignalsWrap" class="pill-wrap"></div>
+        </div>
+      </section>
+
+      <!-- PANEL 2: JOB DESCRIPTION -->
+      <section class="card">
+        <div class="card-head">
+          <div class="card-title-wrap">
+            <div class="icon-box icon-indigo" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+            </div>
+            <div>
+              <h2>2. Job Description</h2>
+              <p>Paste any role's job description below to check your match</p>
+            </div>
+          </div>
+          <button id="btnClearJD" type="button" class="btn-danger-ghost">Clear JD</button>
+        </div>
+
+        <div class="input-pair">
+          <input id="jdRoleTitle" type="text" placeholder="Role Title (e.g., Customer Support Specialist)" />
+          <input id="jdCompanyName" type="text" placeholder="Company (optional)" />
+        </div>
+
+        <textarea id="jdTextArea" rows="9" style="flex:1;"
+                  placeholder="Paste the full job description here (responsibilities, required skills, shift timing, remote policy)..."></textarea>
+
+        <div style="margin-top:12px;display:flex;justify-content:flex-end;">
+          <button id="btnAnalyze" type="button" class="btn-primary">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>Analyze Match &amp; Resume Changes</span>
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- SAVED SESSION MATCHES (COMPARE MULTIPLE ROLES) -->
+    <section id="savedMatchesBar" class="saved-bar hidden">
+      <div class="saved-head">
+        <span>Recent Analyzed Roles (Ranked — Click to Switch)</span>
+        <button id="btnClearSavedMatches" type="button" class="btn-link" style="color:var(--text-muted);font-size:11px;">Clear History</button>
+      </div>
+      <div id="savedMatchesList" class="pill-wrap"></div>
+    </section>
+
+    <!-- RESULTS PANEL -->
+    <section id="resultsPanel" class="card results-card">
+      <div class="results-top">
+        <div class="score-box">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="34" fill="none" stroke="var(--border)" stroke-width="7"></circle>
+              <circle id="scoreRingCircle" cx="40" cy="40" r="34" fill="none" stroke="#334155" stroke-width="7"
+                      stroke-linecap="round" stroke-dasharray="213.6" stroke-dashoffset="213.6"></circle>
+            </svg>
+            <div class="ring-center">
+              <strong id="overallScoreNum">--</strong>
+              <span>Match</span>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+              <h3 id="resultHeading" style="font-size:17px;font-weight:700;">No Input Provided</h3>
+              <span id="hireTierBadge" class="tier-badge tier-empty">No Input Provided</span>
+            </div>
+            <p id="resultSummaryLine" style="margin-top:4px;font-size:13px;color:var(--text-muted);max-width:620px;"></p>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btnGenerateCV" type="button" class="btn-emerald">Generate Tailored CV</button>
+          <button id="btnCopyChecklist" type="button" class="btn-outline">Copy Resume Edit Checklist</button>
+        </div>
+      </div>
+
+      <div id="subScoreGrid" class="subscore-grid"></div>
+
+      <div class="kw-grid">
+        <div class="kw-box kw-matched">
+          <div class="kw-head" style="color:#10b981;">
+            <span>Matched ATS Keywords</span>
+            <span id="matchedCountLabel">--</span>
+          </div>
+          <div id="matchedKeywordsWrap" class="pill-wrap"></div>
+        </div>
+        <div class="kw-box kw-missing">
+          <div class="kw-head" style="color:#d97706;">
+            <span>Missing Keywords <span style="font-weight:400;text-transform:none;opacity:.85;">(click to include/exclude)</span></span>
+            <span id="missingCountLabel">--</span>
+          </div>
+          <div id="missingKeywordsWrap" class="pill-wrap"></div>
+        </div>
+      </div>
+
+      <div class="edits-section">
+        <div class="edits-head">
+          <h4>Where to Work on Your Resume for This Role</h4>
+          <span id="checklistProgress" style="font-size:12px;color:var(--text-muted);">No input</span>
+        </div>
+        <div id="resumeEditsList" class="edits-grid"></div>
+      </div>
+
+      <!-- GENERATED TAILORED CV STUDIO -->
+      <div id="tailoredCVPanel" class="cv-studio hidden">
+        <div class="cv-studio-head">
+          <div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+              <h4 style="font-size:14px;font-weight:700;color:#10b981;">Tailored CV Ready</h4>
+              <span id="cvScoreBoostBadge" class="tier-badge tier-high">Live Match</span>
+            </div>
+            <p id="cvIncludedNote" style="font-size:12px;color:var(--text-muted);margin-top:3px;"></p>
+          </div>
+          <div class="btn-row">
+            <button id="btnDownloadCVPdf" type="button" class="btn-primary" style="padding:7px 12px;font-size:12px;">Download PDF</button>
+            <button id="btnDownloadCVDocx" type="button" class="btn-indigo">Download DOCX</button>
+            <button id="btnCopyCVText" type="button" class="btn-outline" style="padding:7px 12px;">Copy Text</button>
+            <button id="btnApplyCVToMatcher" type="button" class="btn-ghost">Use as Active Resume</button>
+            <button id="btnCloseCVPanel" type="button" class="btn-danger-ghost">Close</button>
+          </div>
+        </div>
+        <textarea id="tailoredCVEditor" class="cv-editor" rows="15"></textarea>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB safety limit
+
+    const SAMPLE_RESUME = `ALEX RIVERA
+Bengaluru, India | +91 90000 00000 | alex.rivera@example.com | linkedin.com/in/alex-rivera
+
+PROFESSIONAL SUMMARY
+Customer Support and Inside Sales Specialist with 3+ years of remote experience across SaaS and e-commerce teams. Proven track record maintaining 92% CSAT, resolving high-volume live chat and email queues, documenting SOPs, and qualifying inbound leads in Salesforce CRM. Available for flexible remote shifts.
+
+SKILLS
+Customer Support, Live Chat Support, Email Support, Inside Sales, Lead Qualification, Salesforce CRM, Zendesk, Google Sheets, Excel, Escalation Handling, SOP Documentation, English, Hindi.
+
+EXPERIENCE
+Customer Support Specialist | CloudCart Solutions | Remote | 06/2023 - Present
+- Resolved 90+ daily live chat and email tickets with 92% CSAT and 95% QA compliance.
+- Documented recurring billing and onboarding issues into internal SOPs and FAQs.
+- Collaborated with engineering and product teams to resolve escalated technical cases.
+
+Inside Sales Associate | BrightLearn EdTech | Remote | 05/2022 - 05/2023
+- Conducted consultative outbound calls and product demos, achieving 118% of monthly revenue targets.
+- Maintained pipeline tracking and follow-ups in Salesforce CRM across email and WhatsApp.
+
+EDUCATION & CERTIFICATIONS
+- B.Tech in Computer Science | Sample Institute of Technology | 2018 - 2022
+- Technical Support Fundamentals (Coursera)`;
+
+    const SKILL_CATALOG = [
+      { label: 'Live Chat Support', patterns: ['live chat', 'chat support', 'concurrent chat', 'messaging'] },
+      { label: 'Voice / Phone Support', patterns: ['voice', 'inbound call', 'phone support', 'phone call', 'calling'] },
+      { label: 'Customer Support / CX', patterns: ['customer support', 'customer care', 'customer experience', 'customer service'] },
+      { label: 'Customer Success', patterns: ['customer success', 'retention', 'adoption', 'account management'] },
+      { label: 'Onboarding & Implementation', patterns: ['onboarding', 'implementation', 'go-live', 'migration', 'setup', 'enablement'] },
+      { label: 'Technical Troubleshooting', patterns: ['technical', 'troubleshoot', 'edge case', 'integration', 'azure', 'aws', 'it support', 'root cause', 'sql', 'api'] },
+      { label: 'SOP & Documentation', patterns: ['sop', 'documentation', 'knowledge base', 'faq', 'script', 'process improvement'] },
+      { label: 'Quality Assurance / QA', patterns: ['quality assurance', 'qa', 'compliance', 'audit', 'quality score'] },
+      { label: 'CSAT & First-Contact Resolution', patterns: ['csat', 'customer satisfaction', 'first-contact', 'first contact', 'response time'] },
+      { label: 'Escalation Handling', patterns: ['escalation', 'de-escalat', 'challenging customer', 'difficult customer'] },
+      { label: 'CRM (Salesforce / Zendesk / HubSpot)', patterns: ['crm', 'salesforce', 'zendesk', 'intercom', 'hubspot', 'freshdesk', 'zoho'] },
+      { label: 'Excel / Google Sheets / Reporting', patterns: ['excel', 'google sheets', 'spreadsheet', 'reporting', 'analytics', 'metrics', 'dashboard'] },
+      { label: 'SaaS / E-Commerce / Product', patterns: ['saas', 'e-commerce', 'ecommerce', 'shopify', 'software', 'product'] },
+      { label: 'Outbound / Cold Calling', patterns: ['outbound', 'cold call', 'cold outreach', 'telecalling', 'prospecting'] },
+      { label: 'Lead Generation & Qualification', patterns: ['lead gen', 'qualify', 'pre-qualify', 'prospect research', 'enquiry', 'enquiries'] },
+      { label: 'Demo Scheduling / Appointment Setting', patterns: ['demo', 'appointment setting', 'schedule meeting', 'schedule demo'] },
+      { label: 'Consultative Sales & Closing', patterns: ['consultative', 'closing', 'conversion', 'revenue', 'sales target', 'business development', 'inside sales'] },
+      { label: 'Sales Pipeline & Nurturing', patterns: ['pipeline', 'nurture', 'nurturing', 'follow-up', 'follow up', 'multi-touch'] },
+      { label: 'Negotiation & Objection Handling', patterns: ['negotiat', 'objection', 'persuasion'] },
+      { label: 'WhatsApp / Email Outreach', patterns: ['whatsapp', 'email outreach', 'email campaign', 'inbound email'] },
+      { label: 'Team Leadership / Collaboration', patterns: ['team leader', 'team lead', 'cross-functional', 'cross-team', 'stakeholder', 'collaborat'] },
+      { label: 'Global / Night / US Shift Readiness', patterns: ['est', 'edt', 'us shift', 'uk shift', 'night shift', 'eastern time', 'global'] },
+      { label: 'Remote / WFH Experience', patterns: ['remote', 'work from home', 'wfh', 'independently'] },
+      { label: 'AI & Workflow Automation', patterns: ['ai ', 'ai-', 'automation', 'ai fluency'] },
+      { label: 'B2B / Enterprise Outreach', patterns: ['b2b', 'decision-maker', 'decision maker', 'enterprise', 'merchant', 'supplier', 'vendor'] }
+    ];
+
+    const state = {
+      resumeName: 'No resume loaded',
+      resumeText: '',
+      jdTitle: '',
+      jdCompany: '',
+      jdText: '',
+      checkedEdits: {},
+      excludedKeywords: {},
+      savedMatches: [],
+      tailoredCVText: '',
+      lastAnalysis: null
+    };
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => el.classList.add('hidden'), 3200);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function xmlEsc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    }
+
+    function detectSkills(text) {
+      const lower = (text || '').toLowerCase();
+      return SKILL_CATALOG.filter(s => s.patterns.some(p => lower.includes(p))).map(s => s.label);
+    }
+
+    function countWords(text) {
+      const c = (text || '').trim();
+      return c ? c.split(/\s+/).length : 0;
+    }
+
+    function analyzeMatch(resumeText, jdText, roleTitle) {
+      const hasResume = (resumeText || '').trim().length > 0;
+      const hasJD = (jdText || '').trim().length > 0;
+
+      if (!hasResume || !hasJD) {
+        let missingMsg = 'No input provided. Drop or paste your resume on the left and paste a job description on the right, then click Analyze.';
+        if (!hasResume && hasJD) missingMsg = 'No resume input provided. Drop a resume file, paste your resume text, or click "Try Sample CV" first.';
+        else if (hasResume && !hasJD) missingMsg = 'No job description provided. Paste a job description on the right and click "Analyze Match & Resume Changes".';
+        return {
+          empty: true, overall: null, tier: 'No Input Provided', tierClass: 'tier-empty', ringColor: '#334155',
+          summaryLine: missingMsg,
+          subScores: [
+            { label: 'ATS Keywords', value: null, note: 'Waiting for input' },
+            { label: 'Experience Fit', value: null, note: 'Waiting for input' },
+            { label: 'Remote & Shift', value: null, note: 'Waiting for input' },
+            { label: 'Impact Metrics', value: null, note: 'Waiting for input' }
+          ],
+          matched: [], missing: [], edits: []
+        };
+      }
+
+      const rLower = resumeText.toLowerCase();
+      const jLower = ((roleTitle || '') + '\n' + jdText).toLowerCase();
+      const resumeSkills = detectSkills(resumeText);
+      const jdSkills = detectSkills(jLower);
+      const matched = jdSkills.filter(k => resumeSkills.includes(k));
+      const missing = jdSkills.filter(k => !resumeSkills.includes(k));
+
+      const atsScore = jdSkills.length > 0 ? Math.round((matched.length / jdSkills.length) * 100) : (resumeSkills.length > 0 ? 70 : 40);
+
+      const isSalesJD = /(sdr|sales development|business development|inside sales|cold call|outbound|lead gen|closing|conversion)/.test(jLower);
+      const isSupportJD = /(customer support|customer experience|live chat|csat|customer care|ticket|merchant)/.test(jLower);
+      const isOnboardingJD = /(onboarding|implementation|supplier|go-live|migration|enablement|training)/.test(jLower);
+
+      let expScore = 58;
+      if (isSalesJD && /(business development|inside sales|sales|demo|revenue|conversion|pipeline)/.test(rLower)) expScore += 28;
+      if (isSupportJD && /(chat|csat|customer support|customer care|ticket|voice|helpdesk)/.test(rLower)) expScore += 28;
+      if (isOnboardingJD && /(onboarding|implementation|sop|documentation|training|crm|sheets|excel)/.test(rLower)) expScore += 26;
+      if (!isSalesJD && !isSupportJD && !isOnboardingJD && matched.length >= 2) expScore += 24;
+      if (/(\d+\+?\s*years|202\d|present)/i.test(rLower)) expScore += 8;
+      expScore = Math.min(98, expScore);
+
+      let shiftScore = 75;
+      const jdNeedsRemote = /(remote|work from home|wfh)/.test(jLower);
+      const resHasRemote = /(remote|work from home|wfh)/.test(rLower);
+      const jdNeedsNightOrUS = /(est|edt|eastern|us shift|uk shift|night shift|5:00 pm|global)/.test(jLower);
+      const resHasShift = /(est|edt|u\.s\.|us |night|shift|flexible|global)/.test(rLower);
+      if (jdNeedsRemote && resHasRemote) shiftScore += 15;
+      if (jdNeedsNightOrUS && resHasShift) shiftScore += 10;
+      else if (jdNeedsNightOrUS && !resHasShift) shiftScore -= 20;
+      shiftScore = Math.max(40, Math.min(100, shiftScore));
+
+      const metricsMatches = resumeText.match(/(\d+%|\d+\+|#\d+|\$\d+|₹\d+)/g) || [];
+      const impactScore = Math.min(96, Math.max(45, 50 + metricsMatches.length * 7));
+
+      const overall = Math.round(atsScore * 0.45 + expScore * 0.25 + shiftScore * 0.15 + impactScore * 0.15);
+
+      let tier = 'High Probability — Strong Apply', tierClass = 'tier-high', ringColor = '#10b981';
+      if (overall < 60) { tier = 'Stretch Fit — Major Tailoring Needed'; tierClass = 'tier-low'; ringColor = '#f43f5e'; }
+      else if (overall < 76) { tier = 'Moderate Fit — Tailor Resume First'; tierClass = 'tier-mid'; ringColor = '#f59e0b'; }
+
+      const edits = [];
+      if (missing.length > 0) {
+        edits.push({
+          id: 'add-keywords', tag: 'ATS Keywords', tagBg: 'rgba(245,158,11,0.16)', tagCol: '#d97706',
+          title: 'Add missing JD keywords into your Skills & Experience',
+          detail: 'Weave these exact terms naturally where truthful: ' + missing.slice(0, 6).join(', ') + '.'
+        });
+      }
+      if (isSalesJD && !isSupportJD) {
+        edits.push({
+          id: 'reorder-sales', tag: 'Section Order', tagBg: 'rgba(59,130,246,0.16)', tagCol: '#3b82f6',
+          title: 'Put sales, demos, and revenue targets at the top',
+          detail: 'Lead your Professional Summary with conversion rates, targets hit, and outbound/pipeline metrics.'
+        });
+      } else if (isOnboardingJD) {
+        edits.push({
+          id: 'highlight-onboarding', tag: 'Bullet Reframe', tagBg: 'rgba(99,102,241,0.18)', tagCol: '#6366f1',
+          title: 'Foreground onboarding, QA validation, and documentation',
+          detail: 'Emphasize guiding users step-by-step, writing SOPs/FAQs, and managing concurrent accounts against deadlines.'
+        });
+      } else {
+        edits.push({
+          id: 'tailor-summary', tag: 'Summary', tagBg: 'rgba(16,185,129,0.16)', tagCol: '#10b981',
+          title: 'Mirror the top 3 requirements in your opening summary',
+          detail: 'Highlight your strongest quantified achievements and tools that directly match this role.'
+        });
+      }
+      if (jdNeedsNightOrUS) {
+        edits.push({
+          id: 'shift-line', tag: 'Shift Readiness', tagBg: 'rgba(168,85,247,0.16)', tagCol: '#9333ea',
+          title: 'State your shift & timezone availability explicitly',
+          detail: 'Confirm remote setup and availability for the required U.S./UK/night shift hours.'
+        });
+      }
+      if (metricsMatches.length < 3) {
+        edits.push({
+          id: 'add-metrics', tag: 'Impact', tagBg: 'rgba(244,63,94,0.16)', tagCol: '#e11d48',
+          title: 'Add 2–3 quantified metrics to your bullets',
+          detail: 'Include concrete numbers (CSAT %, daily volume, targets exceeded %, or turnaround time).'
+        });
+      }
+      edits.push({
+        id: 'single-page', tag: 'Formatting', tagBg: 'rgba(100,116,139,0.18)', tagCol: '#64748b',
+        title: 'Export as a clean single-page ATS-safe PDF or DOCX',
+        detail: 'Use standard section headings (Professional Summary, Skills, Experience, Education) with zero multi-column tables.'
+      });
+
+      return {
+        empty: false, overall, tier, tierClass, ringColor,
+        summaryLine: `Matched ${matched.length} of ${Math.max(1, jdSkills.length)} core JD competencies against "${state.resumeName}".`,
+        subScores: [
+          { label: 'ATS Keywords', value: atsScore, note: `${matched.length}/${Math.max(1, jdSkills.length)} core areas` },
+          { label: 'Experience Fit', value: expScore, note: 'Role & track record' },
+          { label: 'Remote & Shift', value: shiftScore, note: 'WFH / timezone match' },
+          { label: 'Impact Metrics', value: impactScore, note: 'Quantified results' }
+        ],
+        matched, missing, edits
+      };
+    }
+
+    function renderResumeMeta() {
+      document.getElementById('resumeFileName').textContent = state.resumeName;
+      document.getElementById('resumeWordCount').textContent = `${countWords(state.resumeText)} words`;
+      document.getElementById('resumeTextArea').value = state.resumeText;
+
+      const signals = detectSkills(state.resumeText);
+      document.getElementById('detectedSignalCount').textContent = `${signals.length} detected`;
+      const wrap = document.getElementById('resumeSignalsWrap');
+      if (!signals.length) {
+        wrap.innerHTML = '<span style="font-size:12px;color:var(--text-dim);">Drop a resume or paste text to detect skills.</span>';
+      } else {
+        wrap.innerHTML = signals.slice(0, 10).map(s => `<span class="pill">${escapeHtml(s)}</span>`).join('') +
+          (signals.length > 10 ? `<span class="pill pill-blue">+${signals.length - 10} more</span>` : '');
+      }
+    }
+
+    function renderAnalysis() {
+      const res = analyzeMatch(state.resumeText, state.jdText, state.jdTitle);
+      state.lastAnalysis = res;
+
+      const circumference = 213.6;
+      const scoreVal = res.empty ? 0 : res.overall;
+      const ring = document.getElementById('scoreRingCircle');
+      ring.style.strokeDashoffset = circumference - (circumference * scoreVal) / 100;
+      ring.style.stroke = res.ringColor;
+
+      document.getElementById('overallScoreNum').textContent = res.empty ? '--' : `${res.overall}%`;
+      document.getElementById('resultHeading').textContent = res.empty
+        ? 'No Input Provided'
+        : (state.jdTitle ? `${state.jdTitle}${state.jdCompany ? ' — ' + state.jdCompany : ''}` : 'Job Match Analysis');
+
+      const badge = document.getElementById('hireTierBadge');
+      badge.textContent = res.tier;
+      badge.className = `tier-badge ${res.tierClass}`;
+      document.getElementById('resultSummaryLine').textContent = res.summaryLine;
+
+      document.getElementById('subScoreGrid').innerHTML = res.subScores.map(s => {
+        const isNull = s.value === null;
+        const barCol = isNull ? '#475569' : (s.value >= 80 ? '#10b981' : (s.value >= 60 ? '#f59e0b' : '#f43f5e'));
+        return `<div class="sub-card">
+          <div class="sub-top"><span>${escapeHtml(s.label)}</span><span>${isNull ? '--' : s.value + '%'}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${isNull ? 0 : s.value}%;background:${barCol};"></div></div>
+          <div class="sub-note">${escapeHtml(s.note)}</div>
+        </div>`;
+      }).join('');
+
+      document.getElementById('matchedCountLabel').textContent = res.empty ? '--' : `${res.matched.length} matched`;
+      document.getElementById('matchedKeywordsWrap').innerHTML = res.empty
+        ? '<span style="font-size:12px;color:var(--text-dim);">Add both a resume and a job description to see matched keywords.</span>'
+        : (res.matched.length
+          ? res.matched.map(k => `<span class="kw-chip-ok">${escapeHtml(k)}</span>`).join('')
+          : '<span style="font-size:12px;color:var(--text-dim);">No overlapping keywords detected yet.</span>');
+
+      const includedCount = res.missing.filter(k => !state.excludedKeywords[k]).length;
+      document.getElementById('missingCountLabel').textContent = res.empty ? '--' : `${includedCount}/${res.missing.length} selected`;
+      document.getElementById('missingKeywordsWrap').innerHTML = res.empty
+        ? '<span style="font-size:12px;color:var(--text-dim);">Add both a resume and a job description to see missing keywords.</span>'
+        : (res.missing.length
+          ? res.missing.map(k => {
+              const ex = !!state.excludedKeywords[k];
+              return `<button type="button" data-kw="${escapeHtml(k)}" class="kw-toggle ${ex ? 'excluded' : ''}">
+                <span>${ex ? '✕' : '✓'}</span><span>${escapeHtml(k)}</span>
+              </button>`;
+            }).join('')
+          : '<span style="font-size:12px;color:#10b981;font-weight:600;">Great coverage — your resume already hits the main JD keyword groups!</span>');
+
+      renderEditsChecklist();
+    }
+
+    function renderEditsChecklist() {
+      const edits = state.lastAnalysis ? state.lastAnalysis.edits : [];
+      if (!edits.length) {
+        document.getElementById('checklistProgress').textContent = 'No input';
+        document.getElementById('resumeEditsList').innerHTML =
+          '<div style="grid-column:1/-1;padding:12px 14px;border-radius:10px;border:1px dashed var(--border-strong);color:var(--text-muted);font-size:12px;">No resume edit suggestions yet — add both your resume and a job description above, then click Analyze.</div>';
+        return;
+      }
+      const doneCount = edits.filter(e => state.checkedEdits[e.id]).length;
+      document.getElementById('checklistProgress').textContent = `${doneCount} of ${edits.length} completed`;
+      document.getElementById('resumeEditsList').innerHTML = edits.map(e => {
+        const checked = !!state.checkedEdits[e.id];
+        return `<label class="edit-item ${checked ? 'done' : ''}">
+          <input type="checkbox" data-edit-id="${e.id}" class="edit-checkbox" ${checked ? 'checked' : ''} />
+          <div>
+            <div>
+              <span class="edit-tag" style="background:${e.tagBg};color:${e.tagCol};">${escapeHtml(e.tag)}</span>
+              <span class="edit-title">${escapeHtml(e.title)}</span>
+            </div>
+            <div class="edit-detail">${escapeHtml(e.detail)}</div>
+          </div>
+        </label>`;
+      }).join('');
+    }
+
+    function saveMatchToHistory() {
+      if (!state.lastAnalysis || state.lastAnalysis.empty) return;
+      const label = state.jdTitle
+        ? `${state.jdTitle}${state.jdCompany ? ' — ' + state.jdCompany : ''}`
+        : (state.jdText.trim().split(/\r?\n/)[0] || 'Custom Role').slice(0, 38);
+      const id = (label + '::' + state.jdText.slice(0, 60)).toLowerCase();
+      const entry = { id, label, title: state.jdTitle, company: state.jdCompany, jdText: state.jdText, score: state.lastAnalysis.overall };
+      state.savedMatches = [entry, ...state.savedMatches.filter(m => m.id !== id)].slice(0, 8);
+      renderSavedMatches();
+    }
+
+    function renderSavedMatches() {
+      const bar = document.getElementById('savedMatchesBar');
+      const list = document.getElementById('savedMatchesList');
+      if (!state.savedMatches.length) { bar.classList.add('hidden'); return; }
+      bar.classList.remove('hidden');
+      const sorted = [...state.savedMatches].sort((a, b) => b.score - a.score);
+      list.innerHTML = sorted.map((m, idx) => {
+        const scCol = m.score >= 76 ? '#10b981' : (m.score >= 60 ? '#d97706' : '#e11d48');
+        return `<button type="button" data-saved-idx="${idx}" class="saved-chip">
+          <span>${escapeHtml(m.label)}</span>
+          <span style="color:${scCol};font-weight:700;">${m.score}%</span>
+        </button>`;
+      }).join('');
+    }
+
+    function updateLiveCVCoverage() {
+      if (!state.lastAnalysis || state.lastAnalysis.empty) return;
+      const before = state.lastAnalysis.overall;
+      const live = analyzeMatch(state.tailoredCVText, state.jdText, state.jdTitle);
+      if (live.empty) return;
+      const total = live.matched.length + live.missing.length;
+      document.getElementById('cvScoreBoostBadge').textContent =
+        `Live Match: ${before}% → ${live.overall}% (${live.matched.length}/${Math.max(1, total)} JD areas)`;
+    }
+
+    function buildTailoredResume(baseText, jdText, roleTitle, selectedKeywords) {
+      const cleanBase = (baseText || '').trim();
+      const lines = cleanBase.split(/\r?\n/);
+      const firstLine = (lines[0] || 'YOUR NAME').trim();
+      const secondLine = (lines[1] && /@|\+|linkedin|http|india|usa|uk|\|/i.test(lines[1])) ? lines[1].trim() : '';
+
+      const secRegex = /^(PROFESSIONAL SUMMARY|SUMMARY|PROFILE|SKILLS|CORE COMPETENCIES|TECHNICAL SKILLS|EXPERIENCE|PROFESSIONAL EXPERIENCE|WORK EXPERIENCE|EDUCATION & CERTIFICATIONS|EDUCATION|CERTIFICATIONS)$/i;
+      const sections = { header: [], summary: [], skills: [], experience: [], footer: [] };
+      let current = 'header';
+      for (const raw of lines) {
+        const t = raw.trim();
+        if (!t) {
+          if (current === 'experience' && sections.experience.length) sections.experience.push('');
+          continue;
+        }
+        if (secRegex.test(t)) {
+          const u = t.toUpperCase();
+          if (u.includes('SUMMARY') || u === 'PROFILE') current = 'summary';
+          else if (u.includes('SKILL') || u.includes('COMPETENC')) current = 'skills';
+          else if (u.includes('EXPERIENCE')) current = 'experience';
+          else current = 'footer';
+          continue;
+        }
+        sections[current].push(t);
+      }
+
+      const existingSummary = sections.summary.join(' ').trim();
+      const kwSentence = selectedKeywords.length ? ` Experienced in ${selectedKeywords.slice(0, 4).join(', ')}.` : '';
+      const rolePrefix = roleTitle ? `${roleTitle} candidate with ` : '';
+      const tailoredSummary = existingSummary
+        ? `${existingSummary}${kwSentence}`
+        : `${rolePrefix}proven remote execution, strong communication, and hands-on results aligned to this role.${kwSentence}`;
+
+      const existingSkills = sections.skills.join(', ');
+      const existingLower = existingSkills.toLowerCase();
+      const newSkills = selectedKeywords.filter(k => !existingLower.includes(k.toLowerCase()));
+      const mergedSkills = existingSkills
+        ? (newSkills.length ? `${existingSkills}, ${newSkills.join(', ')}` : existingSkills)
+        : newSkills.join(', ');
+
+      const expText = sections.experience.join('\n').trim() || cleanBase;
+      const footerBlock = sections.footer.length ? `EDUCATION & CERTIFICATIONS\n${sections.footer.join('\n')}` : '';
+      const headerBlock = [firstLine, secondLine].filter(Boolean).join('\n');
+
+      return [
+        headerBlock, '',
+        'PROFESSIONAL SUMMARY', tailoredSummary, '',
+        'SKILLS', mergedSkills || 'Communication, Problem Solving, CRM, Remote Collaboration', '',
+        'EXPERIENCE', expText,
+        footerBlock ? '\n' + footerBlock : ''
+      ].join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    function buildDocxXmlFromText(txt) {
+      const headingRe = /^(PROFESSIONAL SUMMARY|SUMMARY|SKILLS|CORE COMPETENCIES|EXPERIENCE|PROFESSIONAL EXPERIENCE|EDUCATION & CERTIFICATIONS|EDUCATION|CERTIFICATIONS)$/i;
+      const paras = [];
+      txt.split(/\r?\n/).forEach((raw, idx) => {
+        const line = raw.trim();
+        if (!line) return;
+        if (idx === 0) {
+          paras.push(`<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="30"/><w:color w:val="0F172A"/></w:rPr><w:t>${xmlEsc(line)}</w:t></w:r></w:p>`);
+        } else if (headingRe.test(line)) {
+          paras.push(`<w:p><w:pPr><w:spacing w:before="180" w:after="60"/><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="CBD5E1"/></w:pBdr></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="1E40AF"/></w:rPr><w:t>${xmlEsc(line)}</w:t></w:r></w:p>`);
+        } else if (line.startsWith('- ') || line.startsWith('• ')) {
+          const clean = line.replace(/^[-•]\s+/, '');
+          paras.push(`<w:p><w:pPr><w:ind w:left="260" w:hanging="140"/><w:spacing w:after="50"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/><w:color w:val="1E293B"/></w:rPr><w:t xml:space="preserve">• ${xmlEsc(clean)}</w:t></w:r></w:p>`);
+        } else {
+          const isRoleLine = line.includes('|');
+          paras.push(`<w:p><w:pPr><w:spacing w:before="${isRoleLine ? 90 : 20}" w:after="50"/></w:pPr><w:r><w:rPr>${isRoleLine ? '<w:b/>' : ''}<w:sz w:val="20"/><w:color w:val="1E293B"/></w:rPr><w:t xml:space="preserve">${xmlEsc(line)}</w:t></w:r></w:p>`);
+        }
+      });
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paras.join('\n    ')}
+    <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850"/></w:sectPr>
+  </w:body>
+</w:document>`;
+    }
+
+    async function extractDocxViaZip(arrayBuffer) {
+      if (!window.JSZip) throw new Error('JSZip unavailable');
+      const zip = await window.JSZip.loadAsync(arrayBuffer);
+      const docFile = zip.file('word/document.xml');
+      if (!docFile) throw new Error('Invalid DOCX');
+      const xml = await docFile.async('string');
+      return xml
+        .replace(/<\/w:p>/g, '\n')
+        .replace(/<w:tab\/>/g, ' ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+
+    async function handleResumeFile(file) {
+      if (!file) return;
+      if (file.size > MAX_FILE_BYTES) {
+        showToast('File is larger than 10 MB. Please upload a smaller resume file.');
+        return;
+      }
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      try {
+        let extracted = '';
+        if (ext === 'txt' || ext === 'md') {
+          extracted = await file.text();
+        } else if (ext === 'pdf') {
+          if (!window.pdfjsLib) throw new Error('PDF parser unavailable');
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
+          const buf = new Uint8Array(await file.arrayBuffer());
+          let pdf;
+          try {
+            pdf = await window.pdfjsLib.getDocument({ data: buf, isEvalSupported: false }).promise;
+          } catch (_) {
+            pdf = await window.pdfjsLib.getDocument({ data: buf, disableWorker: true, isEvalSupported: false }).promise;
+          }
+          const pages = [];
+          for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+            const p = await pdf.getPage(i);
+            const c = await p.getTextContent();
+            pages.push(c.items.map(it => it.str).join(' '));
+          }
+          extracted = pages.join('\n\n');
+        } else if (ext === 'docx') {
+          extracted = await extractDocxViaZip(await file.arrayBuffer());
+        } else {
+          showToast('Please upload a PDF, DOCX, TXT, or MD file.');
+          return;
+        }
+        if (!extracted.trim()) throw new Error('Empty extracted text');
+        state.resumeName = file.name;
+        state.resumeText = extracted.trim();
+        state.checkedEdits = {}; state.excludedKeywords = {};
+        renderResumeMeta(); renderAnalysis();
+        showToast(`Loaded "${file.name}"!`);
+      } catch (_) {
+        document.getElementById('resumeTextContainer').classList.remove('hidden');
+        document.getElementById('btnToggleResumeText').textContent = 'Hide Text';
+        showToast('Could not extract text automatically (scanned PDF?) — paste your resume text below.');
+      }
+    }
+
+    function copyTextSafe(text, okMsg) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast(okMsg)).catch(() => fallbackCopy(text, okMsg));
+      } else {
+        fallbackCopy(text, okMsg);
+      }
+    }
+    function fallbackCopy(text, okMsg) {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); showToast(okMsg); } catch (_) { showToast('Copy failed.'); }
+      document.body.removeChild(ta);
+    }
+
+    // Event wiring
+    document.getElementById('btnThemeToggle').addEventListener('click', () => {
+      const isLight = document.body.classList.toggle('light-mode');
+      document.getElementById('btnThemeToggle').textContent = isLight ? 'Dark Theme' : 'Light Theme';
+      try { localStorage.setItem('jobBotTheme', isLight ? 'light' : 'dark'); } catch (_) {}
+    });
+
+    const dropZone = document.getElementById('resumeDropZone');
+    const fileInput = document.getElementById('resumeFileInput');
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('active'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('active');
+      if (e.dataTransfer && e.dataTransfer.files[0]) handleResumeFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) { handleResumeFile(e.target.files[0]); e.target.value = ''; }
+    });
+
+    document.getElementById('btnLoadSample').addEventListener('click', () => {
+      state.resumeName = 'Alex_Rivera_Sample_CV.txt';
+      state.resumeText = SAMPLE_RESUME;
+      state.checkedEdits = {}; state.excludedKeywords = {};
+      renderResumeMeta(); renderAnalysis();
+      showToast('Loaded sample resume — replace with your own anytime.');
+    });
+
+    document.getElementById('btnClearResume').addEventListener('click', () => {
+      state.resumeName = 'No resume loaded';
+      state.resumeText = '';
+      state.checkedEdits = {}; state.excludedKeywords = {};
+      renderResumeMeta(); renderAnalysis();
+      showToast('Cleared resume.');
+    });
+
+    document.getElementById('btnToggleResumeText').addEventListener('click', () => {
+      const box = document.getElementById('resumeTextContainer');
+      const hidden = box.classList.toggle('hidden');
+      document.getElementById('btnToggleResumeText').textContent = hidden ? 'Paste / Edit Text' : 'Hide Text';
+    });
+
+    document.getElementById('resumeTextArea').addEventListener('input', (e) => {
+      state.resumeText = e.target.value;
+      if (state.resumeName === 'No resume loaded' && state.resumeText.trim()) state.resumeName = 'Pasted Resume';
+      if (!state.resumeText.trim()) state.resumeName = 'No resume loaded';
+      renderResumeMeta();
+    });
+
+    document.getElementById('btnClearJD').addEventListener('click', () => {
+      state.jdTitle = ''; state.jdCompany = ''; state.jdText = '';
+      state.checkedEdits = {}; state.excludedKeywords = {};
+      document.getElementById('jdRoleTitle').value = '';
+      document.getElementById('jdCompanyName').value = '';
+      document.getElementById('jdTextArea').value = '';
+      document.getElementById('tailoredCVPanel').classList.add('hidden');
+      renderAnalysis();
+      showToast('Cleared job description.');
+    });
+
+    document.getElementById('btnAnalyze').addEventListener('click', () => {
+      state.jdTitle = document.getElementById('jdRoleTitle').value.trim();
+      state.jdCompany = document.getElementById('jdCompanyName').value.trim();
+      state.jdText = document.getElementById('jdTextArea').value;
+      state.checkedEdits = {};
+      renderAnalysis();
+      const hasR = state.resumeText.trim().length > 0;
+      const hasJ = state.jdText.trim().length > 0;
+      if (!hasR && !hasJ) showToast('No input: add your resume and paste a job description.');
+      else if (!hasR) showToast('No resume input: drop a resume file or paste your CV text.');
+      else if (!hasJ) showToast('No job description input: paste a job description first.');
+      else { saveMatchToHistory(); showToast('Match score & resume edits updated!'); }
+    });
+
+    document.getElementById('savedMatchesList').addEventListener('click', (e) => {
+      const btn = e.target.closest('.saved-chip');
+      if (!btn) return;
+      const sorted = [...state.savedMatches].sort((a, b) => b.score - a.score);
+      const item = sorted[Number(btn.dataset.savedIdx)];
+      if (!item) return;
+      state.jdTitle = item.title; state.jdCompany = item.company; state.jdText = item.jdText;
+      state.checkedEdits = {}; state.excludedKeywords = {};
+      document.getElementById('jdRoleTitle').value = item.title;
+      document.getElementById('jdCompanyName').value = item.company;
+      document.getElementById('jdTextArea').value = item.jdText;
+      renderAnalysis();
+      showToast(`Switched to "${item.label}" (${item.score}%)`);
+    });
+
+    document.getElementById('btnClearSavedMatches').addEventListener('click', () => {
+      state.savedMatches = []; renderSavedMatches();
+    });
+
+    document.getElementById('missingKeywordsWrap').addEventListener('click', (e) => {
+      const btn = e.target.closest('.kw-toggle');
+      if (!btn) return;
+      state.excludedKeywords[btn.dataset.kw] = !state.excludedKeywords[btn.dataset.kw];
+      renderAnalysis();
+    });
+
+    document.getElementById('resumeEditsList').addEventListener('change', (e) => {
+      if (e.target.classList.contains('edit-checkbox')) {
+        state.checkedEdits[e.target.dataset.editId] = e.target.checked;
+        renderEditsChecklist();
+      }
+    });
+
+    document.getElementById('btnCopyChecklist').addEventListener('click', () => {
+      if (!state.lastAnalysis || state.lastAnalysis.empty) {
+        showToast('No input to copy — analyze a resume and job description first.');
+        return;
+      }
+      const lines = [
+        `Resume Edit Checklist — ${state.jdTitle || 'Target Role'}${state.jdCompany ? ' (' + state.jdCompany + ')' : ''}`,
+        `Match Score: ${state.lastAnalysis.overall}% (${state.lastAnalysis.tier})`,
+        `Missing Keywords: ${state.lastAnalysis.missing.join(', ') || 'None'}`,
+        '',
+        ...state.lastAnalysis.edits.map((e, i) => `${i + 1}. [${e.tag}] ${e.title} — ${e.detail}`)
+      ].join('\n');
+      copyTextSafe(lines, 'Copied resume edit checklist!');
+    });
+
+    document.getElementById('btnGenerateCV').addEventListener('click', () => {
+      if (!state.lastAnalysis || state.lastAnalysis.empty) {
+        showToast('No input: add your resume and paste a job description first.');
+        return;
+      }
+      const selectedMissing = state.lastAnalysis.missing.filter(k => !state.excludedKeywords[k]);
+      const generated = buildTailoredResume(state.resumeText, state.jdText, state.jdTitle, selectedMissing);
+      state.tailoredCVText = generated;
+      document.getElementById('tailoredCVEditor').value = generated;
+      updateLiveCVCoverage();
+      document.getElementById('cvIncludedNote').textContent = selectedMissing.length
+        ? `Wove ${selectedMissing.length} selected keyword area(s) into your CV. Edit any line below — match score updates live.`
+        : 'Reframed your resume cleanly for this role. Edit any line below before downloading.';
+      const panel = document.getElementById('tailoredCVPanel');
+      panel.classList.remove('hidden');
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      showToast('Generated tailored CV!');
+    });
+
+    document.getElementById('tailoredCVEditor').addEventListener('input', (e) => {
+      state.tailoredCVText = e.target.value;
+      updateLiveCVCoverage();
+    });
+
+    document.getElementById('btnCloseCVPanel').addEventListener('click', () => {
+      document.getElementById('tailoredCVPanel').classList.add('hidden');
+    });
+
+    document.getElementById('btnCopyCVText').addEventListener('click', () => {
+      const txt = document.getElementById('tailoredCVEditor').value.trim();
+      if (txt) copyTextSafe(txt, 'Copied tailored CV text!');
+    });
+
+    document.getElementById('btnApplyCVToMatcher').addEventListener('click', () => {
+      const txt = document.getElementById('tailoredCVEditor').value.trim();
+      if (!txt) return;
+      state.resumeName = state.jdTitle ? `Tailored_CV_${state.jdTitle.replace(/\s+/g, '_')}.pdf` : 'Tailored_Resume.pdf';
+      state.resumeText = txt;
+      state.excludedKeywords = {}; state.checkedEdits = {};
+      renderResumeMeta(); renderAnalysis();
+      showToast('Loaded tailored CV as your active resume!');
+    });
+
+    document.getElementById('btnDownloadCVPdf').addEventListener('click', () => {
+      const txt = document.getElementById('tailoredCVEditor').value.trim();
+      if (!txt) { showToast('Nothing to download yet.'); return; }
+      try {
+        if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF unavailable');
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+        const marginX = 44, pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
+        const maxW = pageW - marginX * 2;
+        let y = 46;
+        txt.split(/\r?\n/).forEach((raw, idx) => {
+          const line = raw.trim();
+          if (!line) { y += 7; return; }
+          const isHead = /^(PROFESSIONAL SUMMARY|SUMMARY|SKILLS|CORE COMPETENCIES|EXPERIENCE|PROFESSIONAL EXPERIENCE|EDUCATION & CERTIFICATIONS|EDUCATION|CERTIFICATIONS)$/i.test(line);
+          if (idx === 0) { doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(15, 23, 42); }
+          else if (isHead) { y += 6; doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(30, 64, 175); }
+          else { doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(30, 41, 59); }
+          for (const w of doc.splitTextToSize(line, maxW)) {
+            if (y > pageH - 42) { doc.addPage(); y = 46; }
+            doc.text(w, marginX, y);
+            y += idx === 0 ? 18 : (isHead ? 14 : 12.5);
+          }
+          if (isHead) { doc.setDrawColor(203, 213, 225); doc.line(marginX, y - 9, pageW - marginX, y - 9); }
+        });
+        doc.save('Tailored_Resume.pdf');
+        showToast('Downloaded Tailored_Resume.pdf!');
+      } catch (_) {
+        document.getElementById('printSheet').textContent = txt;
+        showToast('Opening Print dialog — choose "Save as PDF".');
+        setTimeout(() => window.print(), 250);
+      }
+    });
+
+    document.getElementById('btnDownloadCVDocx').addEventListener('click', async () => {
+      const txt = document.getElementById('tailoredCVEditor').value.trim();
+      if (!txt) { showToast('Nothing to download yet.'); return; }
+      try {
+        if (!window.JSZip) throw new Error('JSZip unavailable');
+        const zip = new window.JSZip();
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+        zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+        zip.folder('word').file('document.xml', buildDocxXmlFromText(txt));
+        const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'Tailored_Resume.docx';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        showToast('Downloaded Tailored_Resume.docx!');
+      } catch (_) {
+        showToast('DOCX export unavailable — copied tailored CV text instead.');
+        copyTextSafe(txt, 'Copied tailored CV text!');
+      }
+    });
+
+    // Restore saved theme if previously toggled
+    try {
+      if (localStorage.getItem('jobBotTheme') === 'light') {
+        document.body.classList.add('light-mode');
+        document.getElementById('btnThemeToggle').textContent = 'Dark Theme';
+      }
+    } catch (_) {}
+
+    renderResumeMeta();
+    renderAnalysis();
+  </script>
+</body>
+</html>
